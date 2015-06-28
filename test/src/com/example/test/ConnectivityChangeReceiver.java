@@ -18,7 +18,7 @@ public class ConnectivityChangeReceiver extends BroadcastReceiver{
 	public void onReceive(Context context, Intent intent) {
 		// TODO Auto-generated method stub
 		mContext = context;
-		MainActivity mObjMain;
+		NetworkIOAsyncTask mObjMain;
 
 		System.out.println("Inside Connectivity Change Broadcast Receiver: "+TAG);
 
@@ -29,8 +29,12 @@ public class ConnectivityChangeReceiver extends BroadcastReceiver{
 
 				if(SettingsMgr.getTaskRuningStatus(context)){
 					SettingsMgr.setTaskRunningStatus(context, false);
-					mObjMain = new MainActivity();
-					mObjMain.runAsyncTask(SettingsMgr.getLastIndexRecord(context) + 1, context);
+					mObjMain = new NetworkIOAsyncTask(context);
+					if(SettingsMgr.getLastIndexRecord(context) == 0){
+						mObjMain.runAsyncTask(SettingsMgr.getLastIndexRecord(context));
+					}else{
+						mObjMain.runAsyncTask(SettingsMgr.getLastIndexRecord(context) + 1);
+					}
 					Toast.makeText(mContext, "Last Index:"+SettingsMgr.getLastIndexRecord(context), Toast.LENGTH_SHORT).show();
 
 					// Setting shared prefs variable to default values
@@ -40,13 +44,12 @@ public class ConnectivityChangeReceiver extends BroadcastReceiver{
 			}else if(!GenUtils.isNetworkAvailable(mContext) && !SettingsMgr.getTaskRuningStatus(context)){
 				Toast.makeText(mContext, "Network Unavailable", Toast.LENGTH_SHORT).show();
 
-				mObjMain = new MainActivity();
+				mObjMain = new NetworkIOAsyncTask(context);
 				if(mObjMain.isAsyncTaskRunning()){
 					SettingsMgr.setTaskRunningStatus(context, true);
 					SettingsMgr.setLastIndexRecord(context, mObjMain.getLastExecutedIndex());
 					Toast.makeText(mContext, "Task Running :"+mObjMain.isAsyncTaskRunning(), Toast.LENGTH_SHORT).show();
 				}
-
 			}
 
 		}

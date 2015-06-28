@@ -1,22 +1,12 @@
 package com.example.test;
 
 import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 
 import android.app.Activity;
-import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.IntentFilter;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -24,7 +14,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
-import android.widget.Toast;
 
 
 /**
@@ -33,24 +22,19 @@ import android.widget.Toast;
  */
 public class MainActivity extends Activity {
 
-	private static ArrayList<String> latitudeList = new ArrayList<String>();
-	private static ArrayList<String> longitudeList = new ArrayList<String>();
-	private static ArrayList<String> locnameList = new ArrayList<String>();
-	private static ArrayList<String> parentList = new ArrayList<String>();
+	private ArrayList<String> latitudeList = new ArrayList<String>();
+	private ArrayList<String> longitudeList = new ArrayList<String>();
+	private ArrayList<String> locnameList = new ArrayList<String>();
+	private ArrayList<String> parentList = new ArrayList<String>();
 
 	private Button mStartButton = null;
 	private Activity mActivity = null;
 	private String TAG = "MainActivity";
 
-	private static final String postURL= "http://agiotesting.appspot.com/save";
 	private static final String CONNECTIVITY_CHANGE_ACTION							= 	"android.net.conn.CONNECTIVITY_CHANGE";
 
 	private BroadcastReceiver	mNetworkChangeReceiver;
-	private NetworkIOAsyncTask mNetworkAsyncTask = new NetworkIOAsyncTask();
-	private static ProgressDialog progressDialog;
-
-	private static int lastIndexExecuted = 0;
-	private static boolean dialogFlag = true; 
+	private NetworkIOAsyncTask mNetworkAsyncTask;
 
 
 	@Override
@@ -67,7 +51,9 @@ public class MainActivity extends Activity {
 			public void onClick(View v) {
 				// TO DO
 				parseTextFile();								// Parse the text file in Raw folder
-				runAsyncTask(lastIndexExecuted, mActivity);				
+				mNetworkAsyncTask= new NetworkIOAsyncTask(locnameList, latitudeList, longitudeList, mActivity);
+				mNetworkAsyncTask.runAsyncTask(0);
+				//runAsyncTask(lastIndexExecuted, mActivity);				
 			}
 		});
 	}
@@ -257,168 +243,6 @@ public class MainActivity extends Activity {
 
 		return longitudeList;
 
-	}
-
-	/**
-	 * Takes the starting index as parameter to 
-	 * 		start sending httppost request
-	 * @param indexToStartFrom
-	 */
-	protected void runAsyncTask(int indexToStartFrom, Context mContext){
-
-		if(GenUtils.isNetworkAvailable(mContext)){
-			mNetworkAsyncTask.execute(String.valueOf(indexToStartFrom));
-		}else{
-			Toast.makeText(getApplicationContext(), "No Internet Connectivity", Toast.LENGTH_LONG).show();
-		}
-
-	}
-
-	private class NetworkIOAsyncTask extends AsyncTask<String, Void, String>{
-
-		@Override
-		protected void onPreExecute() {
-			super.onPreExecute();
-
-			if(dialogFlag){
-				dialogFlag = false;
-				if (android.os.Build.VERSION.SDK_INT >android.os.Build.VERSION_CODES.GINGERBREAD) {
-					// only for gingerbread and newer versions
-					mActivity.invalidateOptionsMenu();
-				}
-				progressDialog = new ProgressDialog(mActivity);
-				progressDialog.setMessage("Saving...");
-				progressDialog.setIndeterminate(true);
-				progressDialog.setCanceledOnTouchOutside(false);
-				progressDialog.setIndeterminate(false);
-				progressDialog.setMax(100);
-				progressDialog.setProgress(0);
-				progressDialog.show();
-			}
-
-		}
-
-		@Override
-		protected String doInBackground(String... params) {
-			// TODO Auto-generated method stub
-			try {
-				postData(params[0]);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				//e.printStackTrace();
-			}
-			return null;
-		}
-
-		protected void onPostExecute(String result){
-			// TO DO
-			progressDialog.dismiss();
-			dialogFlag = true;
-		}
-
-		/*protected void onProgressUpdate(Integer... progress){
-			progressDialog.setProgress(progress[0]);
-		}*/
-
-		public void postData(String startingIndex) throws java.lang.InterruptedException {
-			int responseCode = 0, startIndex = 0;
-			String urlParameters = "";
-			URL url;
-
-			if(Integer.parseInt(startingIndex) != 0){
-				startIndex = Integer.parseInt(startingIndex);
-			}
-
-			for(int index = startIndex; index<locnameList.size(); index++){
-
-				if(isCancelled()){
-					return;
-				}
-
-				try {
-					url = new URL(postURL);
-					HttpURLConnection connec = null;
-
-					urlParameters = "name=" + URLEncoder.encode(locnameList.get(index),"UTF-8") +
-							"&latitude="+ URLEncoder.encode(latitudeList.get(index),"UTF-8") +
-							"&longitude="+ URLEncoder.encode(longitudeList.get(index),"UTF-8");
-
-					connec = (HttpURLConnection) url.openConnection();
-
-					//add reuqest header
-					connec.setRequestMethod("POST");
-					connec.setFixedLengthStreamingMode(urlParameters.getBytes().length);
-					connec.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-
-					// Send post request
-					connec.setDoOutput(true);
-
-					DataOutputStream writer;
-					writer = new DataOutputStream(connec.getOutputStream());
-					writer.writeBytes(urlParameters);
-					writer.flush();
-					writer.close();
-					responseCode = connec.getResponseCode();
-
-					//publishProgress();
-
-					if(index<locnameList.size()){
-						lastIndexExecuted = index;
-					}else{
-						lastIndexExecuted = 0;
-					}
-				}
-				catch (java.net.ConnectException netExp){
-					Log.e(TAG, "Network has been disconnected !");
-					mNetworkAsyncTask.cancel(true);
-				}
-				catch(java.net.SocketException socketExp){
-					Log.e(TAG, "Network has been disconnected !");
-				}
-				catch (ProtocolException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				catch (MalformedURLException e2) {
-					// TODO Auto-generated catch block
-					e2.printStackTrace();
-				}
-				catch (IOException e3) {
-					// TODO Auto-generated catch block
-					e3.printStackTrace();
-				}
-
-				System.out.println("\nPosition  : " + index);
-				System.out.println("\nSending 'POST' request to URL : " + postURL);
-				System.out.println("Post parameters : " + urlParameters);
-				System.out.println("Response Code : " + responseCode);
-			}
-		}
-	}
-
-	/**
-	 * Returns whether async task has completed or is currently running
-	 * @return boolean 
-	 */
-	protected boolean isAsyncTaskRunning(){
-		boolean isRunning = false;
-
-		if(mNetworkAsyncTask.getStatus() == AsyncTask.Status.FINISHED){
-			isRunning = false;
-		}else if(mNetworkAsyncTask.getStatus() == AsyncTask.Status.RUNNING){
-			isRunning = false;		
-		}else if(mNetworkAsyncTask.getStatus() == AsyncTask.Status.PENDING){
-			isRunning = true;
-		}
-		return isRunning;
-	}
-
-	/**
-	 * returns the lastindex upto which the httppost request has been completed
-	 * @return int
-	 */
-	protected int getLastExecutedIndex(){
-		return lastIndexExecuted;
 	}
 
 }
